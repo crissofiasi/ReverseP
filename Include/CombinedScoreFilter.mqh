@@ -146,9 +146,9 @@ public:
    //--- Calculate combined score
    int CalculateScore()
    {
-      // Copy indicator data
-      if(CopyBuffer(m_SMA_Fast_Handle, 0, 0, 3, m_SMA_Fast) <= 0 ||
-         CopyBuffer(m_SMA_Slow_Handle, 0, 0, 3, m_SMA_Slow) <= 0 ||
+      // Copy indicator data (need 10 bars for slope calculation)
+      if(CopyBuffer(m_SMA_Fast_Handle, 0, 0, 10, m_SMA_Fast) <= 0 ||
+         CopyBuffer(m_SMA_Slow_Handle, 0, 0, 10, m_SMA_Slow) <= 0 ||
          CopyBuffer(m_RSI_Handle, 0, 0, 3, m_RSI) <= 0 ||
          CopyBuffer(m_ATR_Handle, 0, 0, 3, m_ATR) <= 0)
       {
@@ -199,8 +199,8 @@ public:
    //--- Get detailed score breakdown
    void GetScoreBreakdown(int &trend, int &momentum, int &volatility, int &consistency)
    {
-      if(CopyBuffer(m_SMA_Fast_Handle, 0, 0, 3, m_SMA_Fast) <= 0 ||
-         CopyBuffer(m_SMA_Slow_Handle, 0, 0, 3, m_SMA_Slow) <= 0 ||
+      if(CopyBuffer(m_SMA_Fast_Handle, 0, 0, 10, m_SMA_Fast) <= 0 ||
+         CopyBuffer(m_SMA_Slow_Handle, 0, 0, 10, m_SMA_Slow) <= 0 ||
          CopyBuffer(m_RSI_Handle, 0, 0, 3, m_RSI) <= 0 ||
          CopyBuffer(m_ATR_Handle, 0, 0, 3, m_ATR) <= 0)
       {
@@ -249,26 +249,57 @@ private:
    //--- Calculate trend score
    int CalculateTrendScore()
    {
-      // Calculate trend strength based on SMA distance
-      double sma_distance = MathAbs(m_SMA_Fast[0] - m_SMA_Slow[0]);
-      
-      // Convert to pips
-      double distance_pips = sma_distance / m_Point / 10.0;
-      
       int score = 0;
       
-      // Strong trend (>50 pips distance)
+      // 1. SMA Distance Score (0-15 points)
+      double sma_distance = MathAbs(m_SMA_Fast[0] - m_SMA_Slow[0]);
+      double distance_pips = sma_distance / m_Point / 10.0;
+      
       if(distance_pips > 50)
-         score = 30;
-      // Medium trend (30-50 pips)
+         score += 15;
       else if(distance_pips > 30)
-         score = 20;
-      // Weak trend (15-30 pips)
+         score += 12;
       else if(distance_pips > 15)
-         score = 10;
-      // Very weak trend (<15 pips)
+         score += 8;
       else
-         score = 5;
+         score += 3;
+      
+      // 2. SMA Slope Analysis (0-15 points)
+      // Calculate slopes over 5 bars
+      double fast_slope = (m_SMA_Fast[0] - m_SMA_Fast[4]) / 5.0;
+      double slow_slope = (m_SMA_Slow[0] - m_SMA_Slow[4]) / 5.0;
+      
+      // Convert to pips per bar
+      double fast_slope_pips = fast_slope / m_Point / 10.0;
+      double slow_slope_pips = slow_slope / m_Point / 10.0;
+      
+      // Check if both SMAs trending in same direction
+      bool both_rising = (fast_slope > 0 && slow_slope > 0);
+      bool both_falling = (fast_slope < 0 && slow_slope < 0);
+      
+      if(both_rising || both_falling)
+      {
+         // Strong slope alignment
+         double avg_slope = MathAbs((fast_slope_pips + slow_slope_pips) / 2.0);
+         
+         if(avg_slope > 10.0)        // Strong slope
+            score += 15;
+         else if(avg_slope > 5.0)     // Medium slope
+            score += 10;
+         else if(avg_slope > 2.0)     // Weak slope
+            score += 6;
+         else                          // Very weak slope
+            score += 3;
+      }
+      else
+      {
+         // SMAs diverging or converging - lower score
+         score += 2;
+      }
+      
+      // Cap at max weight
+      if(score > m_Weights.trend_weight)
+         score = m_Weights.trend_weight;
       
       return score;
    }

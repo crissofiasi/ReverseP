@@ -579,7 +579,10 @@ bool CheckMTFConfirmation(int direction)
       return true; // MTF not enabled, allow entry
    
    int confirmations = 0;
+   int rejections = 0;
    int total_enabled = 0;
+   
+   string direction_str = (direction > 0) ? "BUY" : "SELL";
    
    // Check H4
    if(InpMTF_UseH4 && g_MTF_H4 != NULL)
@@ -587,11 +590,26 @@ bool CheckMTFConfirmation(int direction)
       total_enabled++;
       int score = g_MTF_H4.CalculateScore();
       
-      // Score > 60 = bullish, score < 40 = bearish
+      // Score >= 60 = bullish, score <= 40 = bearish, 40-60 = neutral
       if(direction > 0 && score >= 60)
+      {
          confirmations++;
+         Print("MTF H4: CONFIRMED ", direction_str, " (score: ", score, ")");
+      }
       else if(direction < 0 && score <= 40)
+      {
          confirmations++;
+         Print("MTF H4: CONFIRMED ", direction_str, " (score: ", score, ")");
+      }
+      else if((direction > 0 && score <= 40) || (direction < 0 && score >= 60))
+      {
+         rejections++;
+         Print("MTF H4: REJECTED ", direction_str, " (score: ", score, " - opposite trend)");
+      }
+      else
+      {
+         Print("MTF H4: NEUTRAL (score: ", score, " - no clear trend)");
+      }
    }
    
    // Check D1
@@ -601,9 +619,24 @@ bool CheckMTFConfirmation(int direction)
       int score = g_MTF_D1.CalculateScore();
       
       if(direction > 0 && score >= 60)
+      {
          confirmations++;
+         Print("MTF D1: CONFIRMED ", direction_str, " (score: ", score, ")");
+      }
       else if(direction < 0 && score <= 40)
+      {
          confirmations++;
+         Print("MTF D1: CONFIRMED ", direction_str, " (score: ", score, ")");
+      }
+      else if((direction > 0 && score <= 40) || (direction < 0 && score >= 60))
+      {
+         rejections++;
+         Print("MTF D1: REJECTED ", direction_str, " (score: ", score, " - opposite trend)");
+      }
+      else
+      {
+         Print("MTF D1: NEUTRAL (score: ", score, " - no clear trend)");
+      }
    }
    
    // Check W1
@@ -613,21 +646,47 @@ bool CheckMTFConfirmation(int direction)
       int score = g_MTF_W1.CalculateScore();
       
       if(direction > 0 && score >= 60)
+      {
          confirmations++;
+         Print("MTF W1: CONFIRMED ", direction_str, " (score: ", score, ")");
+      }
       else if(direction < 0 && score <= 40)
+      {
          confirmations++;
+         Print("MTF W1: CONFIRMED ", direction_str, " (score: ", score, ")");
+      }
+      else if((direction > 0 && score <= 40) || (direction < 0 && score >= 60))
+      {
+         rejections++;
+         Print("MTF W1: REJECTED ", direction_str, " (score: ", score, " - opposite trend)");
+      }
+      else
+      {
+         Print("MTF W1: NEUTRAL (score: ", score, " - no clear trend)");
+      }
    }
    
    // No MTF filters enabled
    if(total_enabled == 0)
       return true;
    
+   // Block if any timeframe shows opposite trend
+   if(rejections > 0)
+   {
+      Print("MTF BLOCKED: ", rejections, " timeframe(s) showing OPPOSITE trend");
+      return false;
+   }
+   
    // Check if we have minimum confirmations
    bool confirmed = confirmations >= InpMTF_MinConfirmations;
    
    if(!confirmed)
    {
-      Print("MTF Confirmation failed: ", confirmations, "/", total_enabled, " confirmations (min required: ", InpMTF_MinConfirmations, ")");
+      Print("MTF BLOCKED: Only ", confirmations, "/", total_enabled, " confirmations (min required: ", InpMTF_MinConfirmations, ")");
+   }
+   else
+   {
+      Print("MTF PASSED: ", confirmations, "/", total_enabled, " confirmations for ", direction_str);
    }
    
    return confirmed;
