@@ -34,8 +34,26 @@ input double InpWithdrawalPhase4 = 85.0;           // Withdrawal Phase 4 (>500k)
 input group "=== TRADING SETTINGS ==="
 input double InpBaseLotSize = 0.02;                // Base Lot Size (Entry 1)
 input double InpMaxVolumeMultiplier = 5.0;         // Max Volume Multiplier
+input double InpMinVolumeMultiplier = 1.0;         // Min Volume Multiplier (below initial capital)
 input int    InpMagicNumber = 123456;              // Magic Number
 input string InpTradeComment = "PyramInv";         // Trade Comment
+
+//--- Volume Scaling Breakpoints
+input group "=== VOLUME SCALING BREAKPOINTS ==="
+input double InpBreakpoint1 = 10000.0;             // Breakpoint 1 (EUR)
+input double InpBreakpoint2 = 25000.0;             // Breakpoint 2 (EUR)
+input double InpBreakpoint3 = 50000.0;             // Breakpoint 3 (EUR)
+input double InpBreakpoint4 = 100000.0;            // Breakpoint 4 (EUR)
+
+//--- Volume Multiplier Ranges
+input group "=== VOLUME MULTIPLIER RANGES ==="
+input double InpMultiplier_Start = 1.0;            // Initial -> BP1: Start Multiplier
+input double InpMultiplier_BP1 = 2.0;              // Initial -> BP1: End Multiplier
+input double InpMultiplier_BP2 = 2.5;              // BP1 -> BP2: End Multiplier
+input double InpMultiplier_BP3 = 3.5;              // BP2 -> BP3: End Multiplier
+input double InpMultiplier_BP4 = 4.5;              // BP3 -> BP4: End Multiplier
+input double InpMultiplier_Max = 5.0;              // BP4 -> Final: End Multiplier
+input double InpMultiplier_Extraction = 3.0;       // Extraction Phase (>Final): Multiplier
 
 //--- Pyramiding Inversat Settings
 input group "=== PYRAMIDING INVERSAT ==="
@@ -143,6 +161,23 @@ int OnInit()
       Print("ERROR: Failed to create Capital Growth Manager!");
       return INIT_FAILED;
    }
+   
+   // Set volume scaling parameters
+   g_CapitalGrowth.SetVolumeScaling(
+      InpMinVolumeMultiplier,
+      InpMaxVolumeMultiplier,
+      InpBreakpoint1,
+      InpBreakpoint2,
+      InpBreakpoint3,
+      InpBreakpoint4,
+      InpMultiplier_Start,
+      InpMultiplier_BP1,
+      InpMultiplier_BP2,
+      InpMultiplier_BP3,
+      InpMultiplier_BP4,
+      InpMultiplier_Max,
+      InpMultiplier_Extraction
+   );
    
    // Update with current balance
    g_CapitalGrowth.UpdateCapital(AccountInfoDouble(ACCOUNT_BALANCE));

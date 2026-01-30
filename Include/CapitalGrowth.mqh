@@ -39,7 +39,23 @@ private:
    // Volume scaling
    double m_BaseVolume;
    double m_CurrentMultiplier;
+   double m_MinMultiplier;
    double m_MaxMultiplier;
+   
+   // Volume scaling breakpoints
+   double m_Breakpoint1;
+   double m_Breakpoint2;
+   double m_Breakpoint3;
+   double m_Breakpoint4;
+   
+   // Volume multiplier ranges
+   double m_Mult_Start;
+   double m_Mult_BP1;
+   double m_Mult_BP2;
+   double m_Mult_BP3;
+   double m_Mult_BP4;
+   double m_Mult_Max;
+   double m_Mult_Extraction;
    
    // Monthly tracking
    datetime m_LastMonthChecked;
@@ -80,7 +96,23 @@ public:
       
       m_BaseVolume = 0.02;
       m_CurrentMultiplier = 1.0;
+      m_MinMultiplier = 1.0;
       m_MaxMultiplier = 5.0;
+      
+      // Default breakpoints
+      m_Breakpoint1 = 10000.0;
+      m_Breakpoint2 = 25000.0;
+      m_Breakpoint3 = 50000.0;
+      m_Breakpoint4 = 100000.0;
+      
+      // Default multiplier ranges
+      m_Mult_Start = 1.0;
+      m_Mult_BP1 = 2.0;
+      m_Mult_BP2 = 2.5;
+      m_Mult_BP3 = 3.5;
+      m_Mult_BP4 = 4.5;
+      m_Mult_Max = 5.0;
+      m_Mult_Extraction = 3.0;
       
       m_LastMonthChecked = TimeCurrent();
       m_MonthStartCapital = initial_capital;
@@ -174,6 +206,33 @@ public:
    //--- Get max drawdown
    double GetMaxDrawdown() { return m_Performance.max_dd; }
    
+   //--- Set volume scaling parameters
+   void SetVolumeScaling(double min_mult, double max_mult,
+                         double bp1, double bp2, double bp3, double bp4,
+                         double mult_start, double mult_bp1, double mult_bp2,
+                         double mult_bp3, double mult_bp4, double mult_max,
+                         double mult_extraction)
+   {
+      m_MinMultiplier = min_mult;
+      m_MaxMultiplier = max_mult;
+      m_Breakpoint1 = bp1;
+      m_Breakpoint2 = bp2;
+      m_Breakpoint3 = bp3;
+      m_Breakpoint4 = bp4;
+      m_Mult_Start = mult_start;
+      m_Mult_BP1 = mult_bp1;
+      m_Mult_BP2 = mult_bp2;
+      m_Mult_BP3 = mult_bp3;
+      m_Mult_BP4 = mult_bp4;
+      m_Mult_Max = mult_max;
+      m_Mult_Extraction = mult_extraction;
+      
+      Print("Volume scaling configured:");
+      Print("  Breakpoints: ", bp1, ", ", bp2, ", ", bp3, ", ", bp4);
+      Print("  Min/Max Multiplier: ", min_mult, "x / ", max_mult, "x");
+      Print("  Extraction Multiplier: ", mult_extraction, "x");
+   }
+   
    //--- Print status
    void PrintStatus()
    {
@@ -213,42 +272,63 @@ private:
    //--- Update volume multiplier
    void UpdateVolumeMultiplier()
    {
-      if(m_CurrentCapital < 10000)
+      if(m_CurrentCapital < m_Breakpoint1)
       {
-         // 2k-10k: 1.0x -> 2.0x
-         m_CurrentMultiplier = 1.0 + (m_CurrentCapital - m_InitialCapital) / 8000.0;
+         // Initial -> BP1: configurable range
+         double range = m_Breakpoint1 - m_InitialCapital;
+         if(range > 0)
+            m_CurrentMultiplier = m_Mult_Start + (m_CurrentCapital - m_InitialCapital) / range * (m_Mult_BP1 - m_Mult_Start);
+         else
+            m_CurrentMultiplier = m_Mult_Start;
       }
-      else if(m_CurrentCapital < 25000)
+      else if(m_CurrentCapital < m_Breakpoint2)
       {
-         // 10k-25k: 2.0x -> 2.5x
-         m_CurrentMultiplier = 2.0 + (m_CurrentCapital - 10000) / 30000.0;
+         // BP1 -> BP2: configurable range
+         double range = m_Breakpoint2 - m_Breakpoint1;
+         if(range > 0)
+            m_CurrentMultiplier = m_Mult_BP1 + (m_CurrentCapital - m_Breakpoint1) / range * (m_Mult_BP2 - m_Mult_BP1);
+         else
+            m_CurrentMultiplier = m_Mult_BP1;
       }
-      else if(m_CurrentCapital < 50000)
+      else if(m_CurrentCapital < m_Breakpoint3)
       {
-         // 25k-50k: 2.5x -> 3.5x
-         m_CurrentMultiplier = 2.5 + (m_CurrentCapital - 25000) / 25000.0;
+         // BP2 -> BP3: configurable range
+         double range = m_Breakpoint3 - m_Breakpoint2;
+         if(range > 0)
+            m_CurrentMultiplier = m_Mult_BP2 + (m_CurrentCapital - m_Breakpoint2) / range * (m_Mult_BP3 - m_Mult_BP2);
+         else
+            m_CurrentMultiplier = m_Mult_BP2;
       }
-      else if(m_CurrentCapital < 100000)
+      else if(m_CurrentCapital < m_Breakpoint4)
       {
-         // 50k-100k: 3.5x -> 4.5x
-         m_CurrentMultiplier = 3.5 + (m_CurrentCapital - 50000) / 50000.0;
+         // BP3 -> BP4: configurable range
+         double range = m_Breakpoint4 - m_Breakpoint3;
+         if(range > 0)
+            m_CurrentMultiplier = m_Mult_BP3 + (m_CurrentCapital - m_Breakpoint3) / range * (m_Mult_BP4 - m_Mult_BP3);
+         else
+            m_CurrentMultiplier = m_Mult_BP3;
       }
       else if(m_CurrentCapital < m_FinalTarget)
       {
-         // 100k-500k: 4.5x -> 5.0x
-         m_CurrentMultiplier = 4.5 + (m_CurrentCapital - 100000) / 800000.0;
+         // BP4 -> Final: configurable range
+         double range = m_FinalTarget - m_Breakpoint4;
+         if(range > 0)
+            m_CurrentMultiplier = m_Mult_BP4 + (m_CurrentCapital - m_Breakpoint4) / range * (m_Mult_Max - m_Mult_BP4);
+         else
+            m_CurrentMultiplier = m_Mult_BP4;
       }
       else
       {
-         // >500k: 3.0x (extraction - reduce risk)
-         m_CurrentMultiplier = 3.0;
+         // >Final Target: extraction phase
+         m_CurrentMultiplier = m_Mult_Extraction;
       }
       
+      // Apply min/max limits
       if(m_CurrentMultiplier > m_MaxMultiplier)
          m_CurrentMultiplier = m_MaxMultiplier;
       
-      if(m_CurrentMultiplier < 1.0)
-         m_CurrentMultiplier = 1.0;
+      if(m_CurrentMultiplier < m_MinMultiplier)
+         m_CurrentMultiplier = m_MinMultiplier;
    }
    
    //--- Check monthly update
