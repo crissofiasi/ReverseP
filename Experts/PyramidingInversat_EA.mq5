@@ -588,27 +588,23 @@ bool CheckMTFConfirmation(int direction)
    if(InpMTF_UseH4 && g_MTF_H4 != NULL)
    {
       total_enabled++;
+      int h4_trend = g_MTF_H4.GetTrendDirection();
       int score = g_MTF_H4.CalculateScore();
       
-      // Score >= 60 = bullish, score <= 40 = bearish, 40-60 = neutral
-      if(direction > 0 && score >= 60)
+      // Check if H4 trend direction matches our entry direction
+      if(h4_trend == direction)
       {
          confirmations++;
-         Print("MTF H4: CONFIRMED ", direction_str, " (score: ", score, ")");
+         Print("MTF H4: CONFIRMED ", direction_str, " (trend: ", h4_trend, ", score: ", score, ")");
       }
-      else if(direction < 0 && score <= 40)
-      {
-         confirmations++;
-         Print("MTF H4: CONFIRMED ", direction_str, " (score: ", score, ")");
-      }
-      else if((direction > 0 && score <= 40) || (direction < 0 && score >= 60))
+      else if(h4_trend == -direction)
       {
          rejections++;
-         Print("MTF H4: REJECTED ", direction_str, " (score: ", score, " - opposite trend)");
+         Print("MTF H4: REJECTED ", direction_str, " (trend: ", h4_trend, " OPPOSITE, score: ", score, ")");
       }
       else
       {
-         Print("MTF H4: NEUTRAL (score: ", score, " - no clear trend)");
+         Print("MTF H4: NEUTRAL (trend: ", h4_trend, ", score: ", score, " - no clear crossover)");
       }
    }
    
@@ -616,26 +612,22 @@ bool CheckMTFConfirmation(int direction)
    if(InpMTF_UseD1 && g_MTF_D1 != NULL)
    {
       total_enabled++;
+      int d1_trend = g_MTF_D1.GetTrendDirection();
       int score = g_MTF_D1.CalculateScore();
       
-      if(direction > 0 && score >= 60)
+      if(d1_trend == direction)
       {
          confirmations++;
-         Print("MTF D1: CONFIRMED ", direction_str, " (score: ", score, ")");
+         Print("MTF D1: CONFIRMED ", direction_str, " (trend: ", d1_trend, ", score: ", score, ")");
       }
-      else if(direction < 0 && score <= 40)
-      {
-         confirmations++;
-         Print("MTF D1: CONFIRMED ", direction_str, " (score: ", score, ")");
-      }
-      else if((direction > 0 && score <= 40) || (direction < 0 && score >= 60))
+      else if(d1_trend == -direction)
       {
          rejections++;
-         Print("MTF D1: REJECTED ", direction_str, " (score: ", score, " - opposite trend)");
+         Print("MTF D1: REJECTED ", direction_str, " (trend: ", d1_trend, " OPPOSITE, score: ", score, ")");
       }
       else
       {
-         Print("MTF D1: NEUTRAL (score: ", score, " - no clear trend)");
+         Print("MTF D1: NEUTRAL (trend: ", d1_trend, ", score: ", score, " - no clear crossover)");
       }
    }
    
@@ -643,26 +635,22 @@ bool CheckMTFConfirmation(int direction)
    if(InpMTF_UseW1 && g_MTF_W1 != NULL)
    {
       total_enabled++;
+      int w1_trend = g_MTF_W1.GetTrendDirection();
       int score = g_MTF_W1.CalculateScore();
       
-      if(direction > 0 && score >= 60)
+      if(w1_trend == direction)
       {
          confirmations++;
-         Print("MTF W1: CONFIRMED ", direction_str, " (score: ", score, ")");
+         Print("MTF W1: CONFIRMED ", direction_str, " (trend: ", w1_trend, ", score: ", score, ")");
       }
-      else if(direction < 0 && score <= 40)
-      {
-         confirmations++;
-         Print("MTF W1: CONFIRMED ", direction_str, " (score: ", score, ")");
-      }
-      else if((direction > 0 && score <= 40) || (direction < 0 && score >= 60))
+      else if(w1_trend == -direction)
       {
          rejections++;
-         Print("MTF W1: REJECTED ", direction_str, " (score: ", score, " - opposite trend)");
+         Print("MTF W1: REJECTED ", direction_str, " (trend: ", w1_trend, " OPPOSITE, score: ", score, ")");
       }
       else
       {
-         Print("MTF W1: NEUTRAL (score: ", score, " - no clear trend)");
+         Print("MTF W1: NEUTRAL (trend: ", w1_trend, ", score: ", score, " - no clear crossover)");
       }
    }
    
