@@ -98,6 +98,8 @@ input double InpSL_Pips = 25.0;                    // Stop Loss (pips)
 input double InpTP_Pips = 60.0;                    // Take Profit (pips)
 input double InpMaxDailyDD = 5.0;                  // Max Daily Drawdown (%)
 input int    InpMaxSimultaneousClusters = 5;       // Max Simultaneous Clusters
+input bool   InpRequireScoreImprovement = true;    // Require Score Improvement (Same Direction)
+input int    InpMinScoreImprovement = 5;           // Min Score Improvement (points)
 input bool   InpEnableTrailingStop = true;         // Enable Trailing Stop
 input double InpTrailingStopPips = 20.0;           // Trailing Stop Distance (pips)
 input double InpTrailingStepPips = 5.0;            // Trailing Stop Step (pips)
@@ -141,6 +143,11 @@ datetime g_LastBarTime = 0;
 datetime g_DailyResetTime = 0;
 double g_DailyStartBalance = 0.0;
 bool g_TradingAllowed = true;
+
+// Last cluster tracking for score comparison
+int g_LastClusterDirection = 0;
+int g_LastClusterScore = 0;
+datetime g_LastClusterTime = 0;
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                    |
@@ -448,6 +455,28 @@ void OnTick()
       return;
    }
    
+   // Check if conditions have worsened for same direction cluster
+   if(InpRequireScoreImprovement && g_LastClusterDirection == trend_direction)
+   {
+      int score_improvement = combined_score - g_LastClusterScore;
+      
+      if(score_improvement < InpMinScoreImprovement)
+      {
+         Print("========================================");
+         Print("  CLUSTER BLOCKED - CONDITIONS WORSENED");
+         Print("========================================");
+         Print("Direction: ", (trend_direction == 1) ? "BUY" : "SELL");
+         Print("Current Score: ", combined_score);
+         Print("Last Cluster Score: ", g_LastClusterScore);
+         Print("Improvement: ", score_improvement, " (min required: ", InpMinScoreImprovement, ")");
+         Print("Time since last cluster: ", (TimeCurrent() - g_LastClusterTime) / 60, " minutes");
+         Print("========================================");
+         return;
+      }
+      
+      Print("Score improved by ", score_improvement, " points since last cluster");
+   }
+   
    // Calculate lot size
    double base_lot = InpBaseLotSize * g_CapitalGrowth.GetVolumeMultiplier();
    
@@ -482,6 +511,11 @@ void OnTick()
    if(g_PyramidingMgr.OpenCluster(trend_direction, base_lot))
    {
       Print("Cluster opened successfully!");
+      
+      // Update last cluster tracking
+      g_LastClusterDirection = trend_direction;
+      g_LastClusterScore = combined_score;
+      g_LastClusterTime = TimeCurrent();
       
       if(g_Dashboard != NULL)
          g_Dashboard.UpdateStatus(true, (trend_direction == 1) ? "BUY" : "SELL");
