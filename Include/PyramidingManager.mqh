@@ -592,11 +592,30 @@ private:
             return false;
       }
       
+      // Get current price for new entry
+      double entry_price = (m_Clusters[cluster_index].direction == 1) ? 
+                           SymbolInfoDouble(m_Symbol, SYMBOL_ASK) : 
+                           SymbolInfoDouble(m_Symbol, SYMBOL_BID);
+      
+      // RECALCULATE SL/TP based on NEW entry price
+      double new_sl, new_tp;
+      if(m_Clusters[cluster_index].direction == 1) // BUY
+      {
+         new_sl = entry_price - m_SL_Pips * m_Point * 10;
+         new_tp = entry_price + m_TP_Pips * m_Point * 10;
+      }
+      else // SELL
+      {
+         new_sl = entry_price + m_SL_Pips * m_Point * 10;
+         new_tp = entry_price - m_TP_Pips * m_Point * 10;
+      }
+      
+      // Open new position with NEW SL/TP
       bool success = false;
       if(m_Clusters[cluster_index].direction == 1)
-         success = m_Trade.Buy(volume, m_Symbol, 0, m_Clusters[cluster_index].sl_price, m_Clusters[cluster_index].tp_price, comment);
+         success = m_Trade.Buy(volume, m_Symbol, 0, new_sl, new_tp, comment);
       else
-         success = m_Trade.Sell(volume, m_Symbol, 0, m_Clusters[cluster_index].sl_price, m_Clusters[cluster_index].tp_price, comment);
+         success = m_Trade.Sell(volume, m_Symbol, 0, new_sl, new_tp, comment);
       
       if(success)
       {
@@ -624,14 +643,65 @@ private:
          
          m_Clusters[cluster_index].total_volume += volume;
          
+         // UPDATE cluster SL/TP to NEW values
+         m_Clusters[cluster_index].sl_price = new_sl;
+         m_Clusters[cluster_index].tp_price = new_tp;
+         
          Print("Pyramiding Entry ", entry_number, " opened for Cluster ", m_Clusters[cluster_index].cluster_id);
          Print("Volume: ", volume, " | Total Volume: ", m_Clusters[cluster_index].total_volume);
+         Print("NEW SL/TP: ", new_sl, " / ", new_tp, " (based on Entry ", entry_number, " price)");
+         
+         // MODIFY all existing positions in cluster to use NEW SL/TP
+         UpdateClusterSLTP(cluster_index, new_sl, new_tp);
          
          return true;
       }
       
       Print("ERROR: Failed to open Entry ", entry_number);
       return false;
+   }
+   
+   //--- Update SL/TP for all positions in cluster
+   void UpdateClusterSLTP(int cluster_index, double new_sl, double new_tp)
+   {
+      int modified_count = 0;
+      
+      // Update Entry 1
+      if(m_Clusters[cluster_index].entry1_ticket > 0 && PositionSelectByTicket(m_Clusters[cluster_index].entry1_ticket))
+      {
+         if(m_Trade.PositionModify(m_Clusters[cluster_index].entry1_ticket, new_sl, new_tp))
+            modified_count++;
+      }
+      
+      // Update Entry 2
+      if(m_Clusters[cluster_index].entry2_opened && m_Clusters[cluster_index].entry2_ticket > 0 && 
+         PositionSelectByTicket(m_Clusters[cluster_index].entry2_ticket))
+      {
+         if(m_Trade.PositionModify(m_Clusters[cluster_index].entry2_ticket, new_sl, new_tp))
+            modified_count++;
+      }
+      
+      // Update Entry 3
+      if(m_Clusters[cluster_index].entry3_opened && m_Clusters[cluster_index].entry3_ticket > 0 && 
+         PositionSelectByTicket(m_Clusters[cluster_index].entry3_ticket))
+      {
+         if(m_Trade.PositionModify(m_Clusters[cluster_index].entry3_ticket, new_sl, new_tp))
+            modified_count++;
+      }
+      
+      // Update Entry 4
+      if(m_Clusters[cluster_index].entry4_opened && m_Clusters[cluster_index].entry4_ticket > 0 && 
+         PositionSelectByTicket(m_Clusters[cluster_index].entry4_ticket))
+      {
+         if(m_Trade.PositionModify(m_Clusters[cluster_index].entry4_ticket, new_sl, new_tp))
+            modified_count++;
+      }
+      
+      if(modified_count > 0)
+      {
+         Print("Updated SL/TP for ", modified_count, " existing positions in Cluster ", m_Clusters[cluster_index].cluster_id);
+         Print("New SL: ", new_sl, " | New TP: ", new_tp);
+      }
    }
    
    //--- Calculate cluster profit
