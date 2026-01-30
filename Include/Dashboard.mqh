@@ -60,6 +60,15 @@ private:
       bool ea_active;
       string last_signal;
       datetime last_update;
+      
+      // Multi-Timeframe
+      bool mtf_enabled;
+      bool mtf_h4_enabled;
+      bool mtf_d1_enabled;
+      bool mtf_w1_enabled;
+      int mtf_h4_score;
+      int mtf_d1_score;
+      int mtf_w1_score;
    };
    SDashboardData m_Data;
    
@@ -104,6 +113,13 @@ public:
       m_Data.ea_active = true;
       m_Data.last_signal = "NONE";
       m_Data.last_update = TimeCurrent();
+      m_Data.mtf_enabled = false;
+      m_Data.mtf_h4_enabled = false;
+      m_Data.mtf_d1_enabled = false;
+      m_Data.mtf_w1_enabled = false;
+      m_Data.mtf_h4_score = 0;
+      m_Data.mtf_d1_score = 0;
+      m_Data.mtf_w1_score = 0;
    }
    
    //--- Destructor
@@ -168,12 +184,25 @@ public:
       m_Data.monthly_roi = monthly_roi;
    }
    
-   //--- Update status
+   //--- Update status data
    void UpdateStatus(bool active, string last_signal)
    {
       m_Data.ea_active = active;
       m_Data.last_signal = last_signal;
       m_Data.last_update = TimeCurrent();
+   }
+   
+   //--- Update MTF data
+   void UpdateMTF(bool enabled, bool h4_enabled, bool d1_enabled, bool w1_enabled, 
+                  int h4_score, int d1_score, int w1_score)
+   {
+      m_Data.mtf_enabled = enabled;
+      m_Data.mtf_h4_enabled = h4_enabled;
+      m_Data.mtf_d1_enabled = d1_enabled;
+      m_Data.mtf_w1_enabled = w1_enabled;
+      m_Data.mtf_h4_score = h4_score;
+      m_Data.mtf_d1_score = d1_score;
+      m_Data.mtf_w1_score = w1_score;
    }
    
    //--- Draw dashboard
@@ -220,6 +249,23 @@ public:
       DrawLine("Consistency", IntegerToString(m_Data.consistency_score) + "/25", clrGray);
       
       m_CurrentY += 5;
+      
+      // MTF Section (if enabled)
+      if(m_Data.mtf_enabled)
+      {
+         DrawSection("MULTI-TIMEFRAME");
+         
+         if(m_Data.mtf_h4_enabled)
+            DrawLine("H4", IntegerToString(m_Data.mtf_h4_score) + "/100", GetColorByScore(m_Data.mtf_h4_score));
+         
+         if(m_Data.mtf_d1_enabled)
+            DrawLine("D1", IntegerToString(m_Data.mtf_d1_score) + "/100", GetColorByScore(m_Data.mtf_d1_score));
+         
+         if(m_Data.mtf_w1_enabled)
+            DrawLine("W1", IntegerToString(m_Data.mtf_w1_score) + "/100", GetColorByScore(m_Data.mtf_w1_score));
+         
+         m_CurrentY += 5;
+      }
       
       // Monthly section
       DrawSection("MONTHLY");

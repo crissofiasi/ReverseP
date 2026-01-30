@@ -53,10 +53,25 @@ input double InpEntry5Multiplier = 1.0;            // Entry 5 Multiplier
 input group "=== COMBINED SCORE FILTER ==="
 input bool   InpEnableFilter = true;               // Enable Combined Score Filter
 input int    InpMinCombinedScore = 65;             // Minimum Combined Score (0-100)
-input int    InpSMA_Fast = 4;                      // SMA Fast Period
-input int    InpSMA_Slow = 24;                     // SMA Slow Period
-input int    InpRSI_Period = 14;                   // RSI Period
-input int    InpATR_Period = 14;                   // ATR Period
+input ENUM_TIMEFRAMES InpEntryTimeframe = PERIOD_H1; // Entry Timeframe
+input int    InpSMA_Fast = 4;                      // Entry TF: SMA Fast Period
+input int    InpSMA_Slow = 24;                     // Entry TF: SMA Slow Period
+input int    InpRSI_Period = 14;                   // Entry TF: RSI Period
+input int    InpATR_Period = 14;                   // Entry TF: ATR Period
+
+//--- Multi-TimeFrame Analysis
+input group "=== MULTI-TIMEFRAME ANALYSIS ==="
+input bool   InpEnableMTF = true;                  // Enable MTF Analysis
+input bool   InpMTF_UseH4 = true;                  // Use H4 Timeframe
+input int    InpMTF_H4_SMA_Fast = 4;               // H4: SMA Fast Period
+input int    InpMTF_H4_SMA_Slow = 24;              // H4: SMA Slow Period
+input bool   InpMTF_UseD1 = true;                  // Use D1 Timeframe
+input int    InpMTF_D1_SMA_Fast = 4;               // D1: SMA Fast Period
+input int    InpMTF_D1_SMA_Slow = 24;              // D1: SMA Slow Period
+input bool   InpMTF_UseW1 = false;                 // Use W1 Timeframe
+input int    InpMTF_W1_SMA_Fast = 4;               // W1: SMA Fast Period
+input int    InpMTF_W1_SMA_Slow = 24;              // W1: SMA Slow Period
+input int    InpMTF_MinConfirmations = 2;          // Min MTF Confirmations (1-3)
 
 //--- Risk Management
 input group "=== RISK MANAGEMENT ==="
@@ -94,10 +109,15 @@ CPyramidingManager*   g_PyramidingMgr = NULL;
 CCombinedScoreFilter* g_ScoreFilter = NULL;
 CDashboard*           g_Dashboard = NULL;
 
+// Multi-Timeframe Filters
+CCombinedScoreFilter* g_MTF_H4 = NULL;
+CCombinedScoreFilter* g_MTF_D1 = NULL;
+CCombinedScoreFilter* g_MTF_W1 = NULL;
+
 CTrade g_Trade;
 
 string g_Symbol;
-ENUM_TIMEFRAMES g_Timeframe = PERIOD_H1;
+ENUM_TIMEFRAMES g_Timeframe; // Entry timeframe (from input)
 
 datetime g_LastBarTime = 0;
 datetime g_DailyResetTime = 0;
@@ -114,6 +134,7 @@ int OnInit()
    Print("========================================");
    
    g_Symbol = _Symbol;
+   g_Timeframe = InpEntryTimeframe;
    
    // Initialize Capital Growth Manager
    g_CapitalGrowth = new CCapitalGrowth(InpInitialCapital, InpTargetCapital, InpFinalTarget);
@@ -160,6 +181,74 @@ int OnInit()
    }
    
    g_ScoreFilter.SetPeriods(InpSMA_Fast, InpSMA_Slow, InpRSI_Period, InpATR_Period);
+   
+   // Initialize Multi-Timeframe Filters (if enabled)
+   if(InpEnableMTF)
+   {
+      Print("--- Initializing Multi-Timeframe Analysis ---");
+      
+      // H4 Filter
+      if(InpMTF_UseH4)
+      {
+         g_MTF_H4 = new CCombinedScoreFilter();
+         if(g_MTF_H4 == NULL)
+         {
+            Print("ERROR: Failed to create H4 MTF Filter!");
+            return INIT_FAILED;
+         }
+         
+         if(!g_MTF_H4.Initialize(g_Symbol, PERIOD_H4))
+         {
+            Print("ERROR: Failed to initialize H4 MTF Filter!");
+            return INIT_FAILED;
+         }
+         
+         g_MTF_H4.SetPeriods(InpMTF_H4_SMA_Fast, InpMTF_H4_SMA_Slow, InpRSI_Period, InpATR_Period);
+         Print("H4 MTF Filter initialized (SMA Fast: ", InpMTF_H4_SMA_Fast, ", Slow: ", InpMTF_H4_SMA_Slow, ")");
+      }
+      
+      // D1 Filter
+      if(InpMTF_UseD1)
+      {
+         g_MTF_D1 = new CCombinedScoreFilter();
+         if(g_MTF_D1 == NULL)
+         {
+            Print("ERROR: Failed to create D1 MTF Filter!");
+            return INIT_FAILED;
+         }
+         
+         if(!g_MTF_D1.Initialize(g_Symbol, PERIOD_D1))
+         {
+            Print("ERROR: Failed to initialize D1 MTF Filter!");
+            return INIT_FAILED;
+         }
+         
+         g_MTF_D1.SetPeriods(InpMTF_D1_SMA_Fast, InpMTF_D1_SMA_Slow, InpRSI_Period, InpATR_Period);
+         Print("D1 MTF Filter initialized (SMA Fast: ", InpMTF_D1_SMA_Fast, ", Slow: ", InpMTF_D1_SMA_Slow, ")");
+      }
+      
+      // W1 Filter
+      if(InpMTF_UseW1)
+      {
+         g_MTF_W1 = new CCombinedScoreFilter();
+         if(g_MTF_W1 == NULL)
+         {
+            Print("ERROR: Failed to create W1 MTF Filter!");
+            return INIT_FAILED;
+         }
+         
+         if(!g_MTF_W1.Initialize(g_Symbol, PERIOD_W1))
+         {
+            Print("ERROR: Failed to initialize W1 MTF Filter!");
+            return INIT_FAILED;
+         }
+         
+         g_MTF_W1.SetPeriods(InpMTF_W1_SMA_Fast, InpMTF_W1_SMA_Slow, InpRSI_Period, InpATR_Period);
+         Print("W1 MTF Filter initialized (SMA Fast: ", InpMTF_W1_SMA_Fast, ", Slow: ", InpMTF_W1_SMA_Slow, ")");
+      }
+      
+      Print("MTF Analysis enabled with min confirmations: ", InpMTF_MinConfirmations);
+   }
    
    // Initialize Dashboard
    if(InpShowDashboard)
@@ -235,6 +324,24 @@ void OnDeinit(const int reason)
       g_ScoreFilter = NULL;
    }
    
+   if(g_MTF_H4 != NULL)
+   {
+      delete g_MTF_H4;
+      g_MTF_H4 = NULL;
+   }
+   
+   if(g_MTF_D1 != NULL)
+   {
+      delete g_MTF_D1;
+      g_MTF_D1 = NULL;
+   }
+   
+   if(g_MTF_W1 != NULL)
+   {
+      delete g_MTF_W1;
+      g_MTF_W1 = NULL;
+   }
+   
    if(g_Dashboard != NULL)
    {
       g_Dashboard.RemoveAll();
@@ -298,6 +405,13 @@ void OnTick()
    
    if(trend_direction == 0)
       return; // No clear trend
+   
+   // Check Multi-Timeframe Confirmation
+   if(!CheckMTFConfirmation(trend_direction))
+   {
+      Print("Entry blocked by MTF analysis - higher timeframes don't confirm trend");
+      return;
+   }
    
    // Calculate lot size
    double base_lot = InpBaseLotSize * g_CapitalGrowth.GetVolumeMultiplier();
@@ -422,6 +536,69 @@ void CheckDailyDrawdown()
 }
 
 //+------------------------------------------------------------------+
+//| Check Multi-Timeframe Trend Confirmations                        |
+//+------------------------------------------------------------------+
+bool CheckMTFConfirmation(int direction)
+{
+   if(!InpEnableMTF)
+      return true; // MTF not enabled, allow entry
+   
+   int confirmations = 0;
+   int total_enabled = 0;
+   
+   // Check H4
+   if(InpMTF_UseH4 && g_MTF_H4 != NULL)
+   {
+      total_enabled++;
+      int score = g_MTF_H4.CalculateScore();
+      
+      // Score > 60 = bullish, score < 40 = bearish
+      if(direction > 0 && score >= 60)
+         confirmations++;
+      else if(direction < 0 && score <= 40)
+         confirmations++;
+   }
+   
+   // Check D1
+   if(InpMTF_UseD1 && g_MTF_D1 != NULL)
+   {
+      total_enabled++;
+      int score = g_MTF_D1.CalculateScore();
+      
+      if(direction > 0 && score >= 60)
+         confirmations++;
+      else if(direction < 0 && score <= 40)
+         confirmations++;
+   }
+   
+   // Check W1
+   if(InpMTF_UseW1 && g_MTF_W1 != NULL)
+   {
+      total_enabled++;
+      int score = g_MTF_W1.CalculateScore();
+      
+      if(direction > 0 && score >= 60)
+         confirmations++;
+      else if(direction < 0 && score <= 40)
+         confirmations++;
+   }
+   
+   // No MTF filters enabled
+   if(total_enabled == 0)
+      return true;
+   
+   // Check if we have minimum confirmations
+   bool confirmed = confirmations >= InpMTF_MinConfirmations;
+   
+   if(!confirmed)
+   {
+      Print("MTF Confirmation failed: ", confirmations, "/", total_enabled, " confirmations (min required: ", InpMTF_MinConfirmations, ")");
+   }
+   
+   return confirmed;
+}
+
+//+------------------------------------------------------------------+
 //| Update dashboard                                                 |
 //+------------------------------------------------------------------+
 void UpdateDashboard()
@@ -472,6 +649,21 @@ void UpdateDashboard()
       g_CapitalGrowth.GetMaxDrawdown(),
       g_CapitalGrowth.GetMonthlyProfit(),
       0.0 // Monthly ROI - calculate if needed
+   );
+   
+   // Update MTF data
+   int h4_score = (g_MTF_H4 != NULL) ? g_MTF_H4.CalculateScore() : 0;
+   int d1_score = (g_MTF_D1 != NULL) ? g_MTF_D1.CalculateScore() : 0;
+   int w1_score = (g_MTF_W1 != NULL) ? g_MTF_W1.CalculateScore() : 0;
+   
+   g_Dashboard.UpdateMTF(
+      InpEnableMTF,
+      InpMTF_UseH4,
+      InpMTF_UseD1,
+      InpMTF_UseW1,
+      h4_score,
+      d1_score,
+      w1_score
    );
    
    // Update status
