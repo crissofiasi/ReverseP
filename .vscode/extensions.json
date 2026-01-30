@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "l-i-v.mql-tools",
+    "ms-vscode.cpptools",
+    "streetsidesoftware.code-spell-checker",
+    "eamodio.gitlens",
+    "aaron-bond.better-comments",
+    "usernamehw.errorlens",
+    "christian-kohler.path-intellisense",
+    "wayou.vscode-todo-highlight",
+    "PKief.material-icon-theme"
+  ]
+}
