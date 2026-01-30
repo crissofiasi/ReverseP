@@ -72,6 +72,11 @@ private:
    double m_SL_Pips;
    double m_TP_Pips;
    
+   // Trailing Stop settings
+   bool m_EnableTrailingStop;
+   double m_TrailingStopPips;
+   double m_TrailingStepPips;
+   
    // Symbol info
    string m_Symbol;
    double m_Point;
@@ -123,6 +128,11 @@ public:
       
       m_SL_Pips = 25.0;
       m_TP_Pips = 60.0;
+      
+      // Initialize trailing stop
+      m_EnableTrailingStop = true;
+      m_TrailingStopPips = 20.0;
+      m_TrailingStepPips = 5.0;
       
       m_MagicNumber = 123456;
       m_TradeComment = "PyramInv";
@@ -182,6 +192,14 @@ public:
    {
       m_SL_Pips = sl_pips;
       m_TP_Pips = tp_pips;
+   }
+   
+   //--- Set Trailing Stop
+   void SetTrailingStop(bool enable, double trailing_pips, double step_pips)
+   {
+      m_EnableTrailingStop = enable;
+      m_TrailingStopPips = trailing_pips;
+      m_TrailingStepPips = step_pips;
    }
    
    //--- Open new cluster
@@ -295,7 +313,7 @@ public:
       return true;
    }
    
-   //--- Update clusters (check for pyramiding entries)
+   //--- Update clusters (check for pyramiding entries and trailing stop)
    void UpdateClusters()
    {
       for(int i = 0; i < m_MaxClusters; i++)
@@ -306,6 +324,10 @@ public:
          double current_price = (m_Clusters[i].direction == 1) ? 
                                 SymbolInfoDouble(m_Symbol, SYMBOL_BID) : 
                                 SymbolInfoDouble(m_Symbol, SYMBOL_ASK);
+         
+         // Apply trailing stop to all positions in cluster
+         if(m_EnableTrailingStop)
+            ApplyTrailingStop(i, current_price);
          
          // Check Entry 2
          if(!m_Clusters[i].entry2_opened)
@@ -457,6 +479,86 @@ public:
    }
 
 private:
+   //--- Apply trailing stop to all positions in cluster
+   void ApplyTrailingStop(int cluster_index, double current_price)
+   {
+      if(!m_Clusters[cluster_index].is_active)
+         return;
+      
+      // Calculate profit in pips for BUY or SELL
+      double profit_pips = 0.0;
+      if(m_Clusters[cluster_index].direction == 1) // BUY
+         profit_pips = (current_price - m_Clusters[cluster_index].entry1_price) / m_Point / 10.0;
+      else // SELL
+         profit_pips = (m_Clusters[cluster_index].entry1_price - current_price) / m_Point / 10.0;
+      
+      // Only trail if profit >= trailing stop distance
+      if(profit_pips < m_TrailingStopPips)
+         return;
+      
+      // Calculate new SL
+      double new_sl = 0.0;
+      if(m_Clusters[cluster_index].direction == 1) // BUY
+         new_sl = current_price - m_TrailingStopPips * m_Point * 10;
+      else // SELL
+         new_sl = current_price + m_TrailingStopPips * m_Point * 10;
+      
+      // Check if new SL is better than current SL (+ step)
+      bool should_update = false;
+      if(m_Clusters[cluster_index].direction == 1) // BUY
+         should_update = (new_sl > m_Clusters[cluster_index].sl_price + m_TrailingStepPips * m_Point * 10);
+      else // SELL
+         should_update = (new_sl < m_Clusters[cluster_index].sl_price - m_TrailingStepPips * m_Point * 10);
+      
+      if(!should_update)
+         return;
+      
+      // Update SL for ALL positions in cluster
+      bool updated = false;
+      
+      // Entry 1
+      if(m_Clusters[cluster_index].entry1_ticket > 0 && PositionSelectByTicket(m_Clusters[cluster_index].entry1_ticket))
+      {
+         if(m_Trade.PositionModify(m_Clusters[cluster_index].entry1_ticket, new_sl, m_Clusters[cluster_index].tp_price))
+            updated = true;
+      }
+      
+      // Entry 2
+      if(m_Clusters[cluster_index].entry2_opened && m_Clusters[cluster_index].entry2_ticket > 0 && 
+         PositionSelectByTicket(m_Clusters[cluster_index].entry2_ticket))
+      {
+         m_Trade.PositionModify(m_Clusters[cluster_index].entry2_ticket, new_sl, m_Clusters[cluster_index].tp_price);
+      }
+      
+      // Entry 3
+      if(m_Clusters[cluster_index].entry3_opened && m_Clusters[cluster_index].entry3_ticket > 0 && 
+         PositionSelectByTicket(m_Clusters[cluster_index].entry3_ticket))
+      {
+         m_Trade.PositionModify(m_Clusters[cluster_index].entry3_ticket, new_sl, m_Clusters[cluster_index].tp_price);
+      }
+      
+      // Entry 4
+      if(m_Clusters[cluster_index].entry4_opened && m_Clusters[cluster_index].entry4_ticket > 0 && 
+         PositionSelectByTicket(m_Clusters[cluster_index].entry4_ticket))
+      {
+         m_Trade.PositionModify(m_Clusters[cluster_index].entry4_ticket, new_sl, m_Clusters[cluster_index].tp_price);
+      }
+      
+      // Entry 5
+      if(m_Clusters[cluster_index].entry5_opened && m_Clusters[cluster_index].entry5_ticket > 0 && 
+         PositionSelectByTicket(m_Clusters[cluster_index].entry5_ticket))
+      {
+         m_Trade.PositionModify(m_Clusters[cluster_index].entry5_ticket, new_sl, m_Clusters[cluster_index].tp_price);
+      }
+      
+      if(updated)
+      {
+         m_Clusters[cluster_index].sl_price = new_sl;
+         Print("Trailing Stop activated for Cluster ", m_Clusters[cluster_index].cluster_id);
+         Print("New SL: ", new_sl, " | Profit: ", profit_pips, " pips");
+      }
+   }
+   
    //--- Open pyramiding entry
    bool OpenPyramidingEntry(int cluster_index, int entry_number)
    {

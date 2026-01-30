@@ -65,6 +65,9 @@ input double InpSL_Pips = 25.0;                    // Stop Loss (pips)
 input double InpTP_Pips = 60.0;                    // Take Profit (pips)
 input double InpMaxDailyDD = 5.0;                  // Max Daily Drawdown (%)
 input int    InpMaxSimultaneousClusters = 5;       // Max Simultaneous Clusters
+input bool   InpEnableTrailingStop = true;         // Enable Trailing Stop
+input double InpTrailingStopPips = 20.0;           // Trailing Stop Distance (pips)
+input double InpTrailingStepPips = 5.0;            // Trailing Stop Step (pips)
 
 //--- Trading Schedule
 input group "=== TRADING SCHEDULE ==="
@@ -140,6 +143,7 @@ int OnInit()
    g_PyramidingMgr.SetDistances(InpEntry2Distance, InpEntry3Distance, InpEntry4Distance, InpEntry5Distance);
    g_PyramidingMgr.SetMultipliers(InpEntry2Multiplier, InpEntry3Multiplier, InpEntry4Multiplier, InpEntry5Multiplier);
    g_PyramidingMgr.SetSLTP(InpSL_Pips, InpTP_Pips);
+   g_PyramidingMgr.SetTrailingStop(InpEnableTrailingStop, InpTrailingStopPips, InpTrailingStepPips);
    
    // Initialize Combined Score Filter
    g_ScoreFilter = new CCombinedScoreFilter();
